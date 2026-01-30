@@ -1,73 +1,78 @@
-# React + TypeScript + Vite
+# EvalPro MVP - Simulador de Evaluación de Proyectos Financieros
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+EvalPro es una herramienta avanzada de simulación financiera diseñada para evaluar la viabilidad de proyectos de inversión. Ofrece una interfaz intuitiva tipo planilla con "guardrails" para garantizar la integridad de los cálculos financieros, permitiendo a los usuarios modelar escenarios complejos con facilidad.
 
-Currently, two official plugins are available:
+## 🚀 Características Principales
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. Motor Financiero Robusto
+*   **KPIs en Tiempo Real**: Cálculo instantáneo de indicadores clave de rendimiento:
+    *   **VAN (NPV)**: Valor Actual Neto.
+    *   **TIR (IRR)**: Tasa Interna de Retorno (implementada mediante bisección).
+    *   **PRI (Payback)**: Periodo de Recuperación de la Inversión.
+    *   **Ratios de Rentabilidad**: B/C (Beneficio/Costo), PI (Índice de Rentabilidad) e IVAN.
+*   **WACC Dinámico**: Cálculo automático del Costo Promedio Ponderado de Capital basado en la estructura de capital (Equity vs Deuda).
 
-## React Compiler
+### 2. Gestión de Deuda y Capital
+*   **Estructura de Capital**: Control deslizante para ajustar la proporción de Equity y Deuda.
+*   **Sistemas de Amortización**: Soporte para sistemas Francés, Alemán y Bullet.
+*   **Cronograma Automático**: Generación de flujos de intereses y principal integrados directamente en el flujo de caja.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 3. Interfaz de Usuario Premium
+*   **SpreadsheetTable**: Una tabla dinámica con categorías fijas (Ingresos, Costos, CAPEX, CT) y la posibilidad de añadir ítems personalizados.
+*   **Periodicidad Flexible**: Switch para alternar entre vistas mensuales y anuales con lógica de propagación o consolidación de datos.
+*   **Panel de Configuración**: Acordeones organizados para ajustar parámetros básicos, impuestos y detalles avanzados de deuda.
+*   **Sistema de Ayuda Contextual**: Explicaciones detalladas para cada concepto financiero mediante modales informativos.
 
-## Expanding the ESLint configuration
+### 4. Experiencia de Usuario (UX)
+*   **Diseño Responsivo**: Optimizado para diferentes tamaños de pantalla con Tailwind CSS.
+*   **Animaciones Fluidas**: Transiciones suaves entre estados y vistas utilizando Framer Motion.
+*   **Visualización de Resultados**: Paneles claros que diferencian entre la rentabilidad del Proyecto (FCFF) y del Accionista (FCFE).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠️ Stack Tecnológico
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+*   **Framework**: [React 19](https://react.dev/)
+*   **Lenguaje**: [TypeScript](https://www.typescriptlang.org/)
+*   **Bundler**: [Vite](https://vitejs.dev/)
+*   **Estilos**: [Tailwind CSS](https://tailwindcss.com/)
+*   **Componentes UI**: [Radix UI](https://www.radix-ui.com/)
+*   **Iconos**: [Lucide React](https://lucide.dev/)
+*   **Animaciones**: [Framer Motion](https://www.framer.com/motion/)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 📂 Estructura del Proyecto
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+src/
+├── components/     # Componentes de la interfaz (Tabla, Paneles, Modales)
+├── data/           # Datos estáticos y contenido de ayuda
+├── hooks/          # Lógica de estado y cálculos (useFinance)
+├── types/          # Definiciones de tipos TypeScript
+├── utils/          # Utilidades y lógica financiera pura
+├── App.tsx         # Orquestador principal de la aplicación
+└── main.tsx        # Punto de entrada de React
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## ⚙️ Instalación y Desarrollo
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1.  **Clonar el repositorio**:
+    ```bash
+    git clone <url-del-repositorio>
+    cd EvalProyects
+    ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+2.  **Instalar dependencias**:
+    ```bash
+    pnpm install
+    ```
+
+3.  **Iniciar servidor de desarrollo**:
+    ```bash
+    pnpm dev
+    ```
+
+4.  **Construir para producción**:
+    ```bash
+    pnpm build
+    ```
+
+---
+Desarrollado como un MVP para la toma de decisiones financieras estratégicas.

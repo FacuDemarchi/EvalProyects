@@ -13,7 +13,7 @@ const INITIAL_CATEGORIES: Category[] = [
   { id: 'costos_var', label: 'Costos variables', helpId: 'help_costos_var', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
   { id: 'costos_fijos', label: 'Costos fijos', helpId: 'help_costos_fijos', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
   { id: 'capex', label: 'CAPEX / Inversión', helpId: 'help_capex', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
-  { id: 'delta_ct', label: 'Δ Capital de trabajo', helpId: 'help_delta_ct', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
+  { id: 'delta_ct', label: 'Capital de trabajo', helpId: 'help_delta_ct', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
 ];
 
 const INITIAL_CONFIG: FinancialConfig = {
@@ -153,6 +153,55 @@ export const useFinance = () => {
     }));
   };
 
+  const propagateItemValue = (
+    categoryId: string, 
+    itemId: string, 
+    index: number, 
+    newValue: number, 
+    type: 'fixed' | 'proportional'
+  ) => {
+    setState(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => {
+        if (cat.id === categoryId) {
+          return {
+            ...cat,
+            items: cat.items.map(item => {
+              if (item.id === itemId) {
+                const newValues = [...item.values];
+                newValues[index] = newValue;
+
+                if (type === 'fixed') {
+                  // Propagar el mismo valor hacia adelante
+                  for (let i = index + 1; i < newValues.length; i++) {
+                    newValues[i] = newValue;
+                  }
+                } else if (type === 'proportional') {
+                  // Propagar el mismo % de cambio hacia adelante
+                  const prevValue = index > 0 ? item.values[index - 1] : 0;
+                  if (prevValue !== 0) {
+                    const ratio = newValue / prevValue;
+                    for (let i = index + 1; i < newValues.length; i++) {
+                      newValues[i] = newValues[i - 1] * ratio;
+                    }
+                  } else {
+                    // Si el previo es 0, hacemos fija por defecto
+                    for (let i = index + 1; i < newValues.length; i++) {
+                      newValues[i] = newValue;
+                    }
+                  }
+                }
+                return { ...item, values: newValues };
+              }
+              return item;
+            }),
+          };
+        }
+        return cat;
+      }),
+    }));
+  };
+
   const results = useMemo((): FinancialResults => {
     const { config, categories } = state;
     const horizon = config.horizon;
@@ -174,7 +223,7 @@ export const useFinance = () => {
     const capex = getTotals('capex');
     const deltaCt = getTotals('delta_ct');
 
-    const ebitda = ingresos.map((ing, i) => ing - costosVar[i] - costosFijos[i]);
+    const ebitda = ingresos.map((ing, i) => ing + costosVar[i] + costosFijos[i]);
     const ebit = [...ebitda];
 
     const debtSchedule = config.debt.enabled ? generateDebtSchedule(config.debt) : [];
@@ -184,19 +233,20 @@ export const useFinance = () => {
     if (config.debt.enabled) {
       debtSchedule.forEach(entry => {
         if (entry.period <= horizon) {
-          interest[entry.period - 1] = entry.interest;
-          principal[entry.period - 1] = entry.principal;
+          interest[entry.period - 1] = -entry.interest;
+          principal[entry.period - 1] = -entry.principal;
         }
       });
     }
 
     const taxes = ebit.map((eb, i) => {
-      const base = config.evalMode === 'project' ? eb : eb - interest[i];
-      return Math.max(0, base) * (config.taxRate / 100);
+      // Si estamos en modo accionista, restamos intereses (que ya son negativos)
+      const base = config.evalMode === 'project' ? eb : eb + interest[i];
+      return -Math.max(0, base) * (config.taxRate / 100);
     });
 
-    const fcff = ebit.map((eb, i) => eb - taxes[i] - capex[i] - deltaCt[i]);
-    const fcfe = fcff.map((f, i) => f - interest[i] - principal[i]);
+    const fcff = ebit.map((eb, i) => eb + taxes[i] + capex[i] + deltaCt[i]);
+    const fcfe = fcff.map((f, i) => f + interest[i] + principal[i]);
 
     const activeCashFlow = config.evalMode === 'project' ? fcff : fcfe;
     const wacc = calculateWACC(config);
@@ -226,6 +276,7 @@ export const useFinance = () => {
     addItem,
     updateItem,
     deleteItem,
+    propagateItemValue,
     updateConfig,
     togglePeriodicity,
   };

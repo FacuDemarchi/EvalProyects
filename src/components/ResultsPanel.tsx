@@ -26,9 +26,9 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ config, results, onU
       animate={{ opacity: 1, y: 0 }}
       className="bg-white p-3 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
     >
-      <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-[0.03] group-hover:opacity-[0.06] transition-opacity ${colorClass.split(' ')[0]}`} />
+      <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none ${colorClass.split(' ')[0]}`} />
       
-      <div className="flex items-center justify-between text-slate-500 mb-2">
+      <div className="flex items-center justify-between text-slate-500 mb-2 relative z-10">
         <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
           <Icon size={16} className={colorClass} />
           {label}
@@ -155,11 +155,23 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ config, results, onU
 
       {/* RATIOS SECUNDARIOS */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col items-center justify-center text-center">
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col items-center justify-center text-center relative group">
+          <button 
+            onClick={() => onHelp('pi')}
+            className="absolute top-2 right-2 text-slate-300 hover:text-slate-500 transition-colors p-1"
+          >
+            <HelpCircle size={14} />
+          </button>
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">PI (Índice Rent.)</span>
           <span className="text-xl font-black text-slate-700">{kpis.pi.toFixed(2)}</span>
         </div>
-        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col items-center justify-center text-center">
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/60 flex flex-col items-center justify-center text-center relative group">
+          <button 
+            onClick={() => onHelp('ivan')}
+            className="absolute top-2 right-2 text-slate-300 hover:text-slate-500 transition-colors p-1"
+          >
+            <HelpCircle size={14} />
+          </button>
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">IVAN</span>
           <span className="text-xl font-black text-slate-700">{kpis.ivan.toFixed(2)}</span>
         </div>

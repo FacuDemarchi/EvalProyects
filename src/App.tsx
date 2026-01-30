@@ -12,6 +12,8 @@ import { ResultsPanel } from './components/ResultsPanel';
 import { HelpModal } from './components/HelpModal';
 import { ReflectionBox } from './components/ReflectionBox';
 import { CapitalStructureBox } from './components/CapitalStructureBox';
+import { PropagationModal } from './components/PropagationModal';
+import { WorkingCapitalModal } from './components/WorkingCapitalModal';
 import { HELP_CONTENT } from './data/help';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, LayoutDashboard, BarChart3, Settings } from 'lucide-react';
@@ -24,6 +26,7 @@ function App() {
     addItem, 
     updateItem, 
     deleteItem, 
+    propagateItemValue,
     updateConfig,
     togglePeriodicity
   } = useFinance();
@@ -31,6 +34,20 @@ function App() {
   const [helpId, setHelpId] = useState<string | null>(null);
   const [showPeriodicityModal, setShowPeriodicityModal] = useState(false);
   const [pendingPeriodicity, setPendingPeriodicity] = useState<'monthly' | 'yearly' | null>(null);
+  const [propagationData, setPropagationData] = useState<{
+    categoryId: string;
+    itemId: string;
+    index: number;
+    oldValue: number;
+    newValue: number;
+    changePercent: number;
+  } | null>(null);
+  const [wcWarningData, setWcWarningData] = useState<{
+    categoryId: string;
+    itemId: string;
+    index: number;
+    newValue: number;
+  } | null>(null);
 
   const handleTogglePeriodicity = (newPeriodicity: 'monthly' | 'yearly') => {
     if (state.config.periodicity === 'monthly' && newPeriodicity === 'yearly') {
@@ -46,6 +63,28 @@ function App() {
       togglePeriodicity(pendingPeriodicity, propagate);
       setPendingPeriodicity(null);
       setShowPeriodicityModal(false);
+    }
+  };
+
+  const handlePropagationConfirm = (type: 'fixed' | 'proportional') => {
+    if (propagationData) {
+      propagateItemValue(
+        propagationData.categoryId,
+        propagationData.itemId,
+        propagationData.index,
+        propagationData.newValue,
+        type
+      );
+      setPropagationData(null);
+    }
+  };
+
+  const handleWCConfirm = () => {
+    if (wcWarningData) {
+      updateItem(wcWarningData.categoryId, wcWarningData.itemId, { 
+        values: state.categories.find(c => c.id === wcWarningData.categoryId)!.items[0].values.map((v, i) => i === wcWarningData.index ? wcWarningData.newValue : v) 
+      });
+      setWcWarningData(null);
     }
   };
 
@@ -118,12 +157,12 @@ function App() {
       </header>
       
       <main className="max-w-[1600px] mx-auto p-4 lg:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* COLUMNA IZQUIERDA: TABLA (8/12) */}
+        <div className="grid grid-cols-1 gap-6">
+          {/* TABLA DE FLUJO (Ancho Completo) */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-8 space-y-6"
+            className="space-y-6"
           >
             <SpreadsheetTable 
               categories={state.categories}
@@ -131,50 +170,68 @@ function App() {
               results={results}
               onAddItem={addItem}
               onUpdateItem={updateItem}
+              onPropagate={(categoryId, itemId, index, oldValue, newValue) => {
+                if (index === 0 && categoryId !== 'delta_ct') {
+                  propagateItemValue(categoryId, itemId, index, newValue, 'fixed');
+                } else if (index === 0 && categoryId === 'delta_ct') {
+                  // No propagar capital de trabajo por defecto
+                  updateItem(categoryId, itemId, { values: state.categories.find(c => c.id === categoryId)!.items[0].values.map((v, i) => i === 0 ? newValue : v) });
+                } else if (categoryId === 'delta_ct' && index > 0 && newValue !== 0) {
+                  // Mostrar advertencia solo si la variación es significativa (> 20% del valor del periodo anterior)
+                  // Esto ayuda a detectar si el usuario está poniendo el TOTAL de nuevo en lugar del DELTA
+                  const prevValue = state.categories.find(c => c.id === categoryId)!.items[0].values[index - 1];
+                  const isSignificantChange = Math.abs(newValue) > Math.abs(prevValue) * 0.20;
+                  
+                  if (isSignificantChange) {
+                    setWcWarningData({ categoryId, itemId, index, newValue });
+                  } else {
+                    updateItem(categoryId, itemId, { 
+                      values: state.categories.find(c => c.id === categoryId)!.items[0].values.map((v, i) => i === index ? newValue : v) 
+                    });
+                  }
+                } else {
+                  const changePercent = oldValue !== 0 ? ((newValue - oldValue) / Math.abs(oldValue)) * 100 : 0;
+                  setPropagationData({ categoryId, itemId, index, oldValue, newValue, changePercent });
+                }
+              }}
               onDeleteItem={deleteItem}
               onHelp={setHelpId}
             />
           </motion.div>
-          
-          {/* COLUMNA DERECHA: RESULTADOS (4/12) */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-4 space-y-6"
-          >
-            {/* RESULTADOS */}
-            <section className="space-y-6">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm text-slate-600">
-                  <BarChart3 size={18} />
-                </div>
-                <h2 className="text-lg font-black text-slate-800 tracking-tight uppercase">KPIs Financieros</h2>
-              </div>
-              <ResultsPanel 
-                config={state.config}
-                results={results}
-                onUpdateConfig={updateConfig}
-                onHelp={setHelpId}
-              />
-            </section>
-          </motion.div>
         </div>
 
-        {/* SECCIÓN FINAL: REFLEXIÓN Y ESTRUCTURA */}
-        <div className="mt-16 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-          <div className="lg:col-span-8 h-full">
-            <ReflectionBox 
-              config={state.config}
-              results={results}
-            />
-          </div>
-          <div className="lg:col-span-4 h-full">
+        {/* SECCIÓN INTERMEDIA: ESTRUCTURA Y KPIs */}
+        <div className="mt-16 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-5 h-full">
             <CapitalStructureBox 
               config={state.config}
               onUpdateConfig={updateConfig}
               onHelp={setHelpId}
             />
           </div>
+          
+          <div className="lg:col-span-7 space-y-6">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm text-slate-600">
+                <BarChart3 size={18} />
+              </div>
+              <h2 className="text-lg font-black text-slate-800 tracking-tight uppercase">KPIs Financieros</h2>
+            </div>
+            <ResultsPanel 
+              config={state.config}
+              results={results}
+              onUpdateConfig={updateConfig}
+              onHelp={setHelpId}
+            />
+          </div>
+        </div>
+
+        {/* SECCIÓN FINAL: REFLEXIÓN */}
+        <div className="mt-6">
+          <ReflectionBox 
+            config={state.config}
+            results={results}
+          />
         </div>
       </main>
 
@@ -239,6 +296,24 @@ function App() {
           </Dialog.Root>
         )}
       </AnimatePresence>
+
+      {/* MODAL DE PROPAGACIÓN AVANZADA */}
+      <PropagationModal 
+        isOpen={!!propagationData}
+        onClose={() => setPropagationData(null)}
+        onConfirm={handlePropagationConfirm}
+        oldValue={propagationData?.oldValue || 0}
+        newValue={propagationData?.newValue || 0}
+        changePercent={propagationData?.changePercent || 0}
+      />
+
+      {/* MODAL DE ADVERTENCIA CAPITAL DE TRABAJO */}
+      <WorkingCapitalModal 
+        isOpen={!!wcWarningData}
+        onClose={() => setWcWarningData(null)}
+        onConfirm={handleWCConfirm}
+        newValue={wcWarningData?.newValue || 0}
+      />
 
       <footer className="mt-12 py-8 border-t border-slate-200/60 bg-white">
         <div className="max-w-[1600px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-slate-400">

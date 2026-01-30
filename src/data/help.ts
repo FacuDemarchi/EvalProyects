@@ -16,8 +16,8 @@ export const HELP_CONTENT: Record<string, { title: string; description: string }
     description: 'Gastos de capital destinados a adquirir, mantener o mejorar activos fijos como maquinaria, edificios o tecnología.',
   },
   help_delta_ct: {
-    title: 'Δ Capital de Trabajo',
-    description: 'Variación en los activos y pasivos corrientes necesarios para la operación diaria (Inventarios + CxC - CxP).',
+    title: 'Capital de Trabajo',
+    description: 'Monto de dinero necesario para la operación diaria. Se ingresa la inversión inicial necesaria y los ajustes o recuperaciones en períodos posteriores.',
   },
   van: {
     title: 'VAN (Valor Actual Neto)',
@@ -46,5 +46,17 @@ export const HELP_CONTENT: Record<string, { title: string; description: string }
   equity: {
     title: 'Equity (Capital Propio)',
     description: 'Es el porcentaje de la inversión total (CAPEX + Capital de Trabajo) que es aportado por los accionistas o dueños. El resto se financia mediante deuda externa.',
+  },
+  ebitda: {
+    title: 'EBITDA',
+    description: 'Resultado antes de intereses, impuestos, depreciaciones y amortizaciones. Es un indicador de la capacidad de generación de caja operativa del negocio.',
+  },
+  pi: {
+    title: 'PI (Índice de Rentabilidad)',
+    description: 'Muestra la relación entre el valor presente de los flujos futuros y la inversión inicial. Si es > 1, el proyecto genera valor.',
+  },
+  ivan: {
+    title: 'IVAN (Índice de VAN)',
+    description: 'Mide el VAN generado por cada unidad de capital invertido. Es útil para comparar proyectos de diferente escala.',
   },
 };

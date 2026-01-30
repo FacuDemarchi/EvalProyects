@@ -65,7 +65,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Horizonte</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Horizonte (Años)</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -73,13 +73,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
                     onChange={(e) => onUpdateConfig({ horizon: parseInt(e.target.value) || 1 })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   />
-                  <span className="absolute right-4 top-2.5 text-[10px] font-bold text-slate-400 uppercase">Años</span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  Ke / TMAR
+                  Ke / TMAR (%)
                   <button onClick={() => onHelp('ke')} className="text-slate-300 hover:text-blue-500 transition-colors">
                     <HelpCircle size={14} />
                   </button>
@@ -91,7 +90,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
                     onChange={(e) => onUpdateConfig({ ke: parseFloat(e.target.value) || 0 })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   />
-                  <span className="absolute right-4 top-2.5 text-[10px] font-bold text-slate-400 uppercase">%</span>
                 </div>
               </div>
             </div>
@@ -166,7 +164,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Plazo</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Plazo (Años)</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -174,11 +172,10 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
                           onChange={(e) => onUpdateConfig({ debt: { ...config.debt, term: parseInt(e.target.value) || 1 } })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
                         />
-                        <span className="absolute right-4 top-2.5 text-[10px] font-bold text-slate-400 uppercase">Años</span>
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tasa Anual</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tasa Anual (%)</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -186,7 +183,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
                           onChange={(e) => onUpdateConfig({ debt: { ...config.debt, annualRate: parseFloat(e.target.value) || 0 } })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
                         />
-                        <span className="absolute right-4 top-2.5 text-[10px] font-bold text-slate-400 uppercase">%</span>
                       </div>
                     </div>
                   </div>
@@ -213,7 +209,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
                 className="space-y-5"
               >
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tasa Efectiva</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tasa Efectiva (%)</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -221,7 +217,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, totalInvestmen
                       onChange={(e) => onUpdateConfig({ taxRate: parseFloat(e.target.value) || 0 })}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
                     />
-                    <span className="absolute right-4 top-2.5 text-[10px] font-bold text-slate-400 uppercase">%</span>
                   </div>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
