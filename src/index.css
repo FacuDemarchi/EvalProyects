@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/**
+ * OBJETIVO: Estilos globales y utilidades personalizadas.
+ * QUÉ HACE: Configura Tailwind, tipografía Inter y estilos específicos para la tabla tipo spreadsheet.
+ * RETORNA: Estilos base aplicados a toda la aplicación.
+ */
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  
+  /* Paleta extendida */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  @apply bg-[#f8fafc] text-slate-900 antialiased;
+}
+
+@layer components {
+  /* Inputs de la tabla estilo Excel */
+  .spreadsheet-input {
+    @apply w-full h-full bg-transparent border-none px-2 py-1 outline-none text-right transition-all
+           hover:bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-400
+           placeholder:text-slate-300;
+  }
+  
+  .spreadsheet-label {
+    @apply w-full bg-transparent border-none rounded px-2 py-1 outline-none text-left transition-all
+           hover:bg-slate-100 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:shadow-sm
+           text-slate-600 font-medium;
+  }
+
+  /* Scrollbars refinadas */
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+  }
+
+  /* Glassmorphism sutil */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl shadow-slate-200/50;
+  }
+
+  /* Animaciones de entrada */
+  .fade-in-up {
+    animation: fadeInUp 0.5s ease-out forwards;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
