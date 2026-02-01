@@ -4,8 +4,6 @@
  * RETORNA: Tipos y constantes utilizados en toda la aplicación para garantizar consistencia.
  */
 
-export type Periodicity = 'monthly' | 'yearly';
-
 export type AmortizationSystem = 'french' | 'german' | 'bullet';
 
 export interface Item {
@@ -33,7 +31,6 @@ export interface DebtParams {
 }
 
 export interface FinancialConfig {
-  periodicity: Periodicity;
   horizon: number; // en años
   ke: number; // porcentaje (TMAR)
   taxRate: number; // porcentaje de impuestos
@@ -66,6 +63,7 @@ export interface FinancialResults {
     bc: number;
     pi: number;
     ivan: number;
+    vae: number;
   };
 }
 

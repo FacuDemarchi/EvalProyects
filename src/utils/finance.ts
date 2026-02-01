@@ -16,7 +16,7 @@ export const calculateNPV = (rate: number, cashFlows: number[]): number => {
 /**
  * Calcula la TIR (IRR - Internal Rate of Return) usando el método de bisección
  */
-export const calculateIRR = (cashFlows: number[], guess = 0.1): number => {
+export const calculateIRR = (cashFlows: number[]): number => {
   const maxIterations = 100;
   const precision = 0.00001;
   let low = -0.9999;
@@ -155,7 +155,16 @@ export const calculateKPIs = (cashFlows: number[], discountRate: number) => {
   const pi = van / initialInvestment + 1;
   const ivan = van / initialInvestment;
 
-  return { van, tir, pri, bc, pi, ivan };
+  // Calcular VAE (Valor Anual Equivalente)
+  // Fórmula: VAN * [ i / (1 - (1+i)^-n) ]
+  let vae = 0;
+  if (discountRate > 0) {
+    vae = van * (discountRate / (1 - Math.pow(1 + discountRate, -cashFlows.length + 1)));
+  } else {
+    vae = van / (cashFlows.length - 1);
+  }
+
+  return { van, tir, pri, bc, pi, ivan, vae };
 };
 
 /**
@@ -163,13 +172,14 @@ export const calculateKPIs = (cashFlows: number[], discountRate: number) => {
  */
 export const calculateFullResults = (config: FinancialConfig, categories: Category[]): FinancialResults => {
   const horizon = config.horizon;
+  const numPeriods = horizon + 1;
   
   const getTotals = (catId: string) => {
     const cat = categories.find(c => c.id === catId);
-    const totals = new Array(horizon).fill(0);
+    const totals = new Array(numPeriods).fill(0);
     cat?.items.forEach(item => {
       item.values.forEach((val, i) => {
-        if (i < horizon) totals[i] += val;
+        if (i < numPeriods) totals[i] += val;
       });
     });
     return totals;
@@ -181,34 +191,58 @@ export const calculateFullResults = (config: FinancialConfig, categories: Catego
   const capex = getTotals('capex');
   const deltaCt = getTotals('delta_ct');
 
-  const ebitda = ingresos.map((ing, i) => ing + costosVar[i] + costosFijos[i]);
+  // EBITDA = Ingresos - ABS(Costos Variables) - ABS(Costos Fijos)
+  const ebitda = ingresos.map((ing, i) => ing - Math.abs(costosVar[i]) - Math.abs(costosFijos[i]));
   const ebit = [...ebitda];
 
-  const debtSchedule = config.debt.enabled ? generateDebtSchedule(config.debt) : [];
-  const interest = new Array(horizon).fill(0);
-  const principal = new Array(horizon).fill(0);
+  // Preparar parámetros de deuda
+  const adjustedDebtParams = {
+    ...config.debt,
+    term: config.debt.term,
+    annualRate: config.debt.annualRate
+  };
+
+  const debtSchedule = config.debt.enabled ? generateDebtSchedule(adjustedDebtParams) : [];
+  const interest = new Array(numPeriods).fill(0);
+  const principal = new Array(numPeriods).fill(0);
 
   if (config.debt.enabled) {
     debtSchedule.forEach(entry => {
-      if (entry.period <= horizon) {
-        interest[entry.period - 1] = -entry.interest;
-        principal[entry.period - 1] = -entry.principal;
+      if (entry.period < numPeriods) {
+        interest[entry.period] = entry.interest;
+        principal[entry.period] = entry.principal;
       }
     });
   }
 
   const taxes = ebit.map((eb, i) => {
-    const base = config.evalMode === 'project' ? eb : eb + interest[i];
-    return -Math.max(0, base) * (config.taxRate / 100);
+    // Los intereses reducen la base imponible (Escudo Fiscal)
+    const base = config.evalMode === 'project' ? eb : eb - Math.abs(interest[i]);
+    return Math.max(0, base) * (config.taxRate / 100);
   });
 
-  const fcff = ebit.map((eb, i) => eb + taxes[i] + capex[i] + deltaCt[i]);
-  const fcfe = fcff.map((f, i) => f + interest[i] + principal[i]);
+  // FCFF (Flujo Proyecto) = EBITDA - Impuestos - ABS(CAPEX) + Δ Capital de Trabajo
+  // Nota: Δ Capital de Trabajo es positivo si es recuperación y negativo si es inversión
+  const fcff = ebit.map((eb, i) => eb - Math.max(0, taxes[i]) - Math.abs(capex[i]) + deltaCt[i]);
+
+  // FCFE (Flujo Inversionista) = FCFF + Desembolso Deuda - Intereses - Principal
+  const fcfe = fcff.map((f, i) => {
+    let flow = f;
+    if (config.debt.enabled) {
+      if (i === 0) {
+        // En el periodo 0, el accionista pone menos plata porque entra el préstamo
+        flow += config.debt.amount;
+      }
+      flow -= (Math.abs(interest[i]) + Math.abs(principal[i]));
+    }
+    return flow;
+  });
 
   const activeCashFlow = config.evalMode === 'project' ? fcff : fcfe;
   const wacc = calculateWACC(config);
+  
   const discountRate = config.evalMode === 'project' ? wacc : config.ke / 100;
-
+  
   const totalInvestment = Math.abs(capex.reduce((a, b) => a + b, 0) + deltaCt.reduce((a, b) => a + b, 0));
   const kpis = calculateKPIs(activeCashFlow, discountRate);
 

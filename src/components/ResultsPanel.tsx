@@ -7,7 +7,6 @@
 import React from 'react';
 import type { FinancialConfig, FinancialResults } from '../types/finance';
 import { HelpCircle, TrendingUp, Clock, BarChart3, PieChart, Info } from 'lucide-react';
-import * as Switch from '@radix-ui/react-switch';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ResultsPanelProps {

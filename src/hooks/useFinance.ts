@@ -5,21 +5,20 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import type { Category, FinancialConfig, Item, ProjectState, FinancialResults, Periodicity, AmortizationSystem } from '../types/finance';
+import type { Category, FinancialConfig, Item, ProjectState, FinancialResults, AmortizationSystem } from '../types/finance';
 import { calculateFullResults } from '../utils/finance';
 
 const STORAGE_KEY = 'evalpro_project_state';
 
 const INITIAL_CATEGORIES: Category[] = [
-  { id: 'ingresos', label: 'Ingresos', helpId: 'help_ingresos', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
-  { id: 'costos_var', label: 'Costos variables', helpId: 'help_costos_var', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
-  { id: 'costos_fijos', label: 'Costos fijos', helpId: 'help_costos_fijos', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
-  { id: 'capex', label: 'CAPEX / Inversión', helpId: 'help_capex', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
-  { id: 'delta_ct', label: 'Capital de trabajo', helpId: 'help_delta_ct', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
+  { id: 'ingresos', label: 'Ingresos', helpId: 'help_ingresos', items: [{ id: '1', label: '', values: new Array(6).fill(0) }] },
+  { id: 'costos_var', label: 'Costos variables', helpId: 'help_costos_var', items: [{ id: '1', label: '', values: new Array(6).fill(0) }] },
+  { id: 'costos_fijos', label: 'Costos fijos', helpId: 'help_costos_fijos', items: [{ id: '1', label: '', values: new Array(6).fill(0) }] },
+  { id: 'capex', label: 'CAPEX / Inversión', helpId: 'help_capex', items: [{ id: '1', label: '', values: new Array(6).fill(0) }] },
+  { id: 'delta_ct', label: 'Capital de trabajo', helpId: 'help_delta_ct', items: [{ id: '1', label: '', values: new Array(6).fill(0) }] },
 ];
 
 const INITIAL_CONFIG: FinancialConfig = {
-  periodicity: 'yearly',
   horizon: 5,
   ke: 15,
   taxRate: 35,
@@ -68,9 +67,21 @@ export const useFinance = () => {
           categories: prev.categories.map(cat => ({
             ...cat,
             items: cat.items.map(item => {
-              const newValues = new Array(updatedConfig.horizon).fill(0);
-              item.values.forEach((v, i) => {
-                if (i < newValues.length) newValues[i] = v;
+              const newValues = new Array(updatedConfig.horizon + 1).fill(0);
+              const lastValue = item.values.length > 0 ? item.values[item.values.length - 1] : 0;
+              
+              newValues.forEach((_, i) => {
+                if (i < item.values.length) {
+                  newValues[i] = item.values[i];
+                } else {
+                  // Si estamos expandiendo, propagamos el último valor conocido para Ingresos y Costos
+                  // Para CAPEX y Capital de Trabajo (delta_ct), mantenemos en 0 por defecto
+                  if (['ingresos', 'costos_var', 'costos_fijos'].includes(cat.id)) {
+                    newValues[i] = lastValue;
+                  } else {
+                    newValues[i] = 0;
+                  }
+                }
               });
               return { ...item, values: newValues };
             })
@@ -79,49 +90,6 @@ export const useFinance = () => {
       }
       
       return { ...prev, config: updatedConfig };
-    });
-  };
-
-  const togglePeriodicity = (newPeriodicity: Periodicity, propagate: boolean = false) => {
-    setState(prev => {
-      const oldPeriodicity = prev.config.periodicity;
-      if (oldPeriodicity === newPeriodicity) return prev;
-
-      const newHorizon = newPeriodicity === 'monthly' 
-        ? prev.config.horizon * 12 
-        : Math.ceil(prev.config.horizon / 12);
-
-      const newCategories = prev.categories.map(cat => ({
-        ...cat,
-        items: cat.items.map(item => {
-          let newValues: number[] = [];
-          if (newPeriodicity === 'monthly') {
-            // Expandir Año -> Meses
-            item.values.forEach(yearVal => {
-              const monthVal = yearVal / 12;
-              newValues.push(...new Array(12).fill(monthVal));
-            });
-          } else {
-            // Colapsar Meses -> Año
-            for (let i = 0; i < item.values.length; i += 12) {
-              const yearChunk = item.values.slice(i, i + 12);
-              const yearSum = yearChunk.reduce((a, b) => a + b, 0);
-              newValues.push(yearSum);
-            }
-            if (propagate && newValues.length > 0) {
-              const firstYear = newValues[0];
-              newValues = new Array(newHorizon).fill(firstYear);
-            }
-          }
-          return { ...item, values: newValues };
-        })
-      }));
-
-      return {
-        ...prev,
-        config: { ...prev.config, periodicity: newPeriodicity, horizon: newHorizon },
-        categories: newCategories
-      };
     });
   };
 
@@ -174,7 +142,7 @@ export const useFinance = () => {
     itemId: string, 
     index: number, 
     newValue: number, 
-    type: 'fixed' | 'proportional'
+    type: 'fixed' | 'proportional' | 'none'
   ) => {
     setState(prev => ({
       ...prev,
@@ -207,6 +175,8 @@ export const useFinance = () => {
                     }
                   }
                 }
+                // Si type === 'none', no hacemos nada más, solo se actualiza el índice actual
+                
                 return { ...item, values: newValues };
               }
               return item;
@@ -227,44 +197,79 @@ export const useFinance = () => {
     const totalV = results.totalInvestment;
     const systems: AmortizationSystem[] = ['french', 'german', 'bullet'];
     
-    let bestVan = -Infinity;
+    let bestVae = -Infinity;
     let bestConfig = { 
       amount: config.debt.amount, 
       equity: config.debt.equity, 
-      system: config.debt.system 
+      system: config.debt.system,
+      horizon: config.horizon
     };
 
-    // Probar diferentes niveles de deuda (0% a 95% para dejar algo de equity)
-    // Usamos pasos del 5% para encontrar un balance razonable
-    for (let debtRatio = 0; debtRatio <= 0.95; debtRatio += 0.05) {
-      const currentDebtAmount = totalV * debtRatio;
-      const currentEquityAmount = totalV - currentDebtAmount;
+    // Probamos horizontes de 3 a 15 años
+    const minH = 3;
+    const maxH = 15;
+    const stepH = 1;
 
-      for (const system of systems) {
-        const testConfig: FinancialConfig = {
-          ...config,
-          debt: {
-            ...config.debt,
-            enabled: currentDebtAmount > 0,
-            amount: currentDebtAmount,
-            equity: currentEquityAmount,
-            system: system,
-          }
-        };
+    for (let h = minH; h <= maxH; h += stepH) {
+      // Simular propagación de valores para el horizonte h
+      const tempCategories = categories.map(cat => ({
+        ...cat,
+        items: cat.items.map(item => {
+          const newValues = new Array(h + 1).fill(0);
+          const lastValue = item.values.length > 0 ? item.values[item.values.length - 1] : 0;
+          newValues.forEach((_, i) => {
+            if (i < item.values.length) {
+              newValues[i] = item.values[i];
+            } else {
+              if (['ingresos', 'costos_var', 'costos_fijos'].includes(cat.id)) {
+                newValues[i] = lastValue;
+              } else {
+                newValues[i] = 0;
+              }
+            }
+          });
+          return { ...item, values: newValues };
+        })
+      }));
 
-        const testResults = calculateFullResults(testConfig, categories);
-        if (testResults.kpis.van > bestVan) {
-          bestVan = testResults.kpis.van;
-          bestConfig = { 
-            amount: currentDebtAmount, 
-            equity: currentEquityAmount, 
-            system: system 
+      // Probar diferentes niveles de deuda (0% a 100%)
+      for (let debtRatio = 0; debtRatio <= 1.0; debtRatio += 0.05) {
+        const currentDebtAmount = Math.round(totalV * debtRatio);
+        const currentEquityAmount = totalV - currentDebtAmount;
+
+        for (const system of systems) {
+          const testConfig: FinancialConfig = {
+            ...config,
+            horizon: h,
+            debt: {
+              ...config.debt,
+              enabled: currentDebtAmount > 0,
+              amount: currentDebtAmount,
+              equity: currentEquityAmount,
+              system: system,
+            }
           };
+
+          const testResults = calculateFullResults(testConfig, tempCategories);
+          
+          // RESTRICCIÓN DE LIQUIDEZ: FCFE no debe ser negativo en los años de operación
+          const isSustainable = testResults.fcfe.slice(1).every(val => val >= -0.01);
+
+          if (isSustainable && testResults.kpis.vae > bestVae) {
+            bestVae = testResults.kpis.vae;
+            bestConfig = { 
+              amount: currentDebtAmount, 
+              equity: currentEquityAmount, 
+              system: system,
+              horizon: h
+            };
+          }
         }
       }
     }
 
     updateConfig({
+      horizon: bestConfig.horizon,
       debt: {
         ...config.debt,
         enabled: bestConfig.amount > 0,
@@ -283,8 +288,58 @@ export const useFinance = () => {
     deleteItem,
     propagateItemValue,
     updateConfig,
-    togglePeriodicity,
     optimizeCapitalStructure,
+    loadDemoData: () => {
+      const horizon = 10;
+      const numPeriods = horizon + 1;
+      const baseSales = 1000000;
+      const growth = 1.07;
+      const taxRate = 35;
+      
+      const ingresos = new Array(numPeriods).fill(0).map((_, i) => {
+        if (i === 0) return 0; // Año 0 no hay ventas operativas
+        let yearIndex = i - 1;
+        let val = baseSales * Math.pow(growth, yearIndex);
+        if (i === 5) val += 500000; // Venta máquina 1 (Fin Año 5) - Más agresivo
+        if (i === 10) val += 1500000; // Valor desecho máquina 2 (Fin Año 10) - Recuperación total
+        return Math.round(val);
+      });
+
+      const costosVar = ingresos.map((_, i) => {
+        if (i === 0) return 0;
+        let yearIndex = i - 1;
+        let baseIng = baseSales * Math.pow(growth, yearIndex);
+        return -Math.round(baseIng * 0.3); // Bajamos costo variable al 30%
+      });
+
+      const costosFijos = new Array(numPeriods).fill(0).map((_, i) => i === 0 ? 0 : -100000); // Bajamos fijos a 100k
+      
+      const capex = new Array(numPeriods).fill(0);
+      capex[0] = -1000000; // Bajamos inversión inicial a 1M
+      capex[5] = -1000000; // Reinversión 1M
+
+      const deltaCt = new Array(numPeriods).fill(0);
+      deltaCt[0] = -100000; // Inversión inicial CT
+      // Incrementos anuales mínimos
+      for (let i = 1; i < numPeriods - 1; i++) {
+        deltaCt[i] = -2000; 
+      }
+      // Recuperación en año 10
+      deltaCt[10] = 100000 + (2000 * 9);
+
+      const newCategories: Category[] = [
+        { id: 'ingresos', label: 'Ingresos', helpId: 'help_ingresos', items: [{ id: '1', label: 'Ventas y Activos', values: ingresos }] },
+        { id: 'costos_var', label: 'Costos variables', helpId: 'help_costos_var', items: [{ id: '1', label: '40% s/Ventas', values: costosVar }] },
+        { id: 'costos_fijos', label: 'Costos fijos', helpId: 'help_costos_fijos', items: [{ id: '1', label: 'Mantenimiento', values: costosFijos }] },
+        { id: 'capex', label: 'CAPEX / Inversión', helpId: 'help_capex', items: [{ id: '1', label: 'Maquinaria', values: capex }] },
+        { id: 'delta_ct', label: 'Capital de trabajo', helpId: 'help_delta_ct', items: [{ id: '1', label: 'Operativo', values: deltaCt }] },
+      ];
+
+      setState({
+        config: { ...INITIAL_CONFIG, horizon, taxRate, ke: 15 },
+        categories: newCategories
+      });
+    },
   };
 };
 

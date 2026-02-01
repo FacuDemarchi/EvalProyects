@@ -35,10 +35,6 @@ export const HELP_CONTENT: Record<string, { title: string; description: string }
     title: 'B/C (Relación Beneficio/Costo)',
     description: 'Muestra cuántos pesos se obtienen por cada peso invertido, en términos de valor presente.',
   },
-  periodicidad: {
-    title: 'Periodicidad',
-    description: 'Permite alternar entre una vista mensual (detalle fino) y anual (resumen estratégico). Los datos se convierten automáticamente mediante suma o división.',
-  },
   ke: {
     title: 'Ke / TMAR',
     description: 'Tasa Mínima Aceptable de Rendimiento. Es la rentabilidad mínima que el inversionista exige para llevar a cabo el proyecto.',

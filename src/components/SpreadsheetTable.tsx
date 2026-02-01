@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { HelpCircle } from 'lucide-react';
-import type { Category, FinancialConfig, FinancialResults, Item } from '../types/finance';
+import type { Category, FinancialConfig, FinancialResults } from '../types/finance';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion } from 'framer-motion';
@@ -19,10 +19,8 @@ interface SpreadsheetTableProps {
   categories: Category[];
   config: FinancialConfig;
   results: FinancialResults;
-  onAddItem: (catId: string) => void;
-  onUpdateItem: (catId: string, itemId: string, updates: Partial<Item>) => void;
   onPropagate: (catId: string, itemId: string, index: number, oldValue: number, newValue: number) => void;
-  onDeleteItem: (catId: string, itemId: string) => void;
+  onUpdateConfig: (updates: Partial<FinancialConfig>) => void;
   onHelp: (id: string) => void;
 }
 
@@ -30,21 +28,21 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
   categories,
   config,
   results,
-  onUpdateItem,
   onPropagate,
+  onUpdateConfig,
   onHelp,
 }) => {
   const [editingValue, setEditingValue] = React.useState<{ catId: string; index: number; value: string } | null>(null);
-  const periods = Array.from({ length: config.horizon }, (_, i) => i + 1);
-  const periodLabel = config.periodicity === 'monthly' ? 'Mes' : 'Año';
+  const [isEditingTax, setIsEditingTax] = React.useState(false);
+  const [taxInputValue, setTaxInputValue] = React.useState(config.taxRate.toString());
+  const periods = Array.from({ length: config.horizon + 1 }, (_, i) => i);
 
-  const handleBlur = (catId: string, itemId: string, index: number, currentValue: number, newValue: number, prevPeriodValue: number) => {
+  const handleBlur = (catId: string, itemId: string, index: number, oldValue: number, newValue: number) => {
     setEditingValue(null);
     
     // Auto-negativo para salidas de dinero (si el usuario pone positivo, lo convertimos)
     let finalValue = newValue;
     if (['costos_var', 'costos_fijos', 'capex', 'delta_ct'].includes(catId) && newValue > 0) {
-      // Para Capital de Trabajo en períodos posteriores, permitimos positivo (recuperación)
       if (catId === 'delta_ct' && index > 0) {
         finalValue = newValue;
       } else {
@@ -52,8 +50,9 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
       }
     }
 
-    if (finalValue !== currentValue) {
-      onPropagate(catId, itemId, index, prevPeriodValue, finalValue);
+    if (finalValue !== oldValue) {
+      // Pasamos el valor que tenía la celda ANTES de editar para que App.tsx sepa si cambió
+      onPropagate(catId, itemId, index, oldValue, finalValue);
     }
   };
 
@@ -68,7 +67,9 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
             {periods.map(p => (
               <th key={p} className="p-2 text-right font-bold text-slate-700 min-w-[120px] border-r border-slate-300 last:border-r-0">
                 <div className="flex items-baseline justify-end gap-1.5">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-400">{periodLabel}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                    {p === 0 ? 'Inicio' : 'Año'}
+                  </span>
                   <span className="text-sm">{p}</span>
                 </div>
               </th>
@@ -96,12 +97,13 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                   // Formateador contable para mostrar mientras se escribe
                   const formatAccounting = (valStr: string) => {
                     if (!valStr) return "";
+                    const isNegative = valStr.startsWith("-");
                     // Limpiar todo lo que no sea número o coma
                     const clean = valStr.replace(/[^\d,]/g, "");
                     const parts = clean.split(",");
                     // Formatear la parte entera con puntos
                     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                    return parts.join(",");
+                    return (isNegative ? "-" : "") + parts.join(",");
                   };
 
                   const displayValue = isEditing 
@@ -113,7 +115,7 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                       <input
                         type="text"
                         value={displayValue}
-                        onFocus={(e) => {
+                        onFocus={() => {
                           // Al seleccionar, dejamos la celda en blanco para escribir de cero
                           setEditingValue({ catId: category.id, index: i, value: "" });
                         }}
@@ -124,37 +126,29 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                           setEditingValue({ catId: category.id, index: i, value: formatted });
                         }}
                         onBlur={(e) => {
-                          // Si el usuario no escribió nada (dejó en blanco), mantenemos el valor anterior
-                          if (editingValue?.value === "") {
-                            setEditingValue(null);
-                            return;
-                          }
-                          
-                          // Obtener el valor formateado del input
-                          const rawValue = e.target.value;
-                          // Limpiar puntos y convertir coma a punto para parsear
-                          const cleanValue = rawValue.replace(/\./g, "").replace(",", ".");
-                          const newValue = parseFloat(cleanValue) || 0;
-                          
-                          const currentValue = mainItem!.values[i];
-                          const prevPeriodValue = i > 0 ? mainItem!.values[i - 1] : 0;
-                          
-                          handleBlur(category.id, mainItem!.id, i, currentValue, newValue, prevPeriodValue);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const input = e.target as HTMLInputElement;
-                            const newValue = parseFloat(input.value.replace(/\./g, "").replace(",", ".")) || 0;
-                            const currentValue = mainItem!.values[i];
-                            const prevPeriodValue = i > 0 ? mainItem!.values[i - 1] : 0;
+                            // Si ya no estamos editando (porque se manejó en Enter), no hacer nada
+                            if (!editingValue) return;
+
+                            const rawValue = e.target.value;
+                            const cleanValue = rawValue.replace(/\./g, "").replace(",", ".");
+                            const newValue = parseFloat(cleanValue) || 0;
+                            const oldValue = mainItem!.values[i];
                             
-                            setEditingValue(null);
-                            if (newValue !== currentValue) {
-                              onPropagate(category.id, mainItem!.id, i, prevPeriodValue, newValue);
+                            handleBlur(category.id, mainItem!.id, i, oldValue, newValue);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const rawValue = e.currentTarget.value;
+                              const cleanValue = rawValue.replace(/\./g, "").replace(",", ".");
+                              const newValue = parseFloat(cleanValue) || 0;
+                              const oldValue = mainItem!.values[i];
+                              
+                              // Quitamos el foco primero para asegurar que el estado se limpie correctamente
+                              // handleBlur se encargará de disparar el modal
+                              handleBlur(category.id, mainItem!.id, i, oldValue, newValue);
+                              e.currentTarget.blur();
                             }
-                            input.blur();
-                          }
-                        }}
+                          }}
                         className={cn(
                           "spreadsheet-input w-full h-full p-2 outline-none border-none text-right bg-transparent focus:bg-blue-50 focus:ring-2 focus:ring-blue-400 transition-all font-semibold",
                           value < 0 && "text-red-500"
@@ -188,8 +182,37 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
           </tr>
 
           <tr className="bg-white text-slate-500 font-medium">
-            <td className="p-2 border-r border-slate-300 sticky left-0 bg-white z-10 italic">
-              Impuestos ({config.taxRate}%)
+            <td className="p-2 border-r border-slate-300 sticky left-0 bg-white z-10 italic group/tax cursor-pointer" onClick={() => {
+              setIsEditingTax(true);
+              setTaxInputValue(config.taxRate.toString());
+            }}>
+              {isEditingTax ? (
+                <div className="flex items-center gap-1">
+                  <span>Impuestos (</span>
+                  <input
+                    autoFocus
+                    type="number"
+                    value={taxInputValue}
+                    onChange={(e) => setTaxInputValue(e.target.value)}
+                    onBlur={() => {
+                      setIsEditingTax(false);
+                      onUpdateConfig({ taxRate: parseFloat(taxInputValue) || 0 });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setIsEditingTax(false);
+                        onUpdateConfig({ taxRate: parseFloat(taxInputValue) || 0 });
+                      }
+                    }}
+                    className="w-10 bg-blue-50 border-none outline-none text-blue-600 font-bold p-0 rounded"
+                  />
+                  <span>%)</span>
+                </div>
+              ) : (
+                <span className="group-hover/tax:text-blue-600 transition-colors">
+                  Impuestos ({config.taxRate}%)
+                </span>
+              )}
             </td>
             {results.taxes.map((val, i) => (
               <td key={i} className={cn(

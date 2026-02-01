@@ -76,3 +76,14 @@ src/
 
 ---
 Desarrollado como un MVP para la toma de decisiones financieras estratégicas.
+
+## 🧠 Motor de Inteligencia Financiera Tridimensional
+
+EvalPro incluye un algoritmo de optimización avanzada que trasciende el cálculo simple de VAN. Al activar el **"Cálculo Óptimo"**, el sistema ejecuta una simulación tridimensional para encontrar la configuración más eficiente del proyecto:
+
+1.  **Dimensión Temporal (Horizonte)**: El motor evalúa automáticamente múltiples horizontes temporales (desde 3 hasta 15 años). Utiliza el **Valor Anual Equivalente (VAE)** como métrica maestra para determinar si es financieramente superior un proyecto corto de alta intensidad o uno largo de rentabilidad sostenida, eliminando el sesgo de "más años = más VAN".
+2.  **Dimensión de Capital (Estructura de Deuda)**: Prueba iterativamente niveles de apalancamiento desde 0% hasta 100%. Busca el punto exacto donde el escudo fiscal de la deuda maximiza la rentabilidad del accionista sin comprometer la solvencia del negocio.
+3.  **Dimensión de Amortización (Sistemas de Pago)**: Compara los sistemas Francés, Alemán y Bullet bajo el horizonte y nivel de deuda seleccionados, identificando cuál de ellos optimiza el flujo de caja según el perfil de ingresos proyectado.
+
+### 🛡️ Restricción de Sostenibilidad (Guardrail)
+A diferencia de otros simuladores, nuestro motor incorpora una **Restricción de Liquidez**. El algoritmo descarta automáticamente cualquier configuración que genere un **FCFE (Flujo del Accionista) negativo** en los periodos de operación. Esto garantiza que el escenario "óptimo" sugerido sea siempre sostenible y no requiera inyecciones de capital imprevistas.

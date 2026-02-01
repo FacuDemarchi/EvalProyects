@@ -7,7 +7,6 @@
 import { useState, useEffect } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { SpreadsheetTable } from './components/SpreadsheetTable';
-import { ConfigPanel } from './components/ConfigPanel';
 import { ResultsPanel } from './components/ResultsPanel';
 import { HelpModal } from './components/HelpModal';
 import { ReflectionBox } from './components/ReflectionBox';
@@ -15,21 +14,18 @@ import { CapitalStructureBox } from './components/CapitalStructureBox';
 import { PropagationModal } from './components/PropagationModal';
 import { WorkingCapitalModal } from './components/WorkingCapitalModal';
 import { HELP_CONTENT } from './data/help';
-import * as Dialog from '@radix-ui/react-dialog';
-import { X, LayoutDashboard, BarChart3, Settings } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { LayoutDashboard, BarChart3, ChevronUp, ChevronDown, HelpCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 function App() {
   const { 
     state, 
     results, 
-    addItem, 
     updateItem, 
-    deleteItem, 
     propagateItemValue,
     updateConfig,
-    togglePeriodicity,
-    optimizeCapitalStructure
+    optimizeCapitalStructure,
+    loadDemoData
   } = useFinance();
 
   // Sincronizar la estructura de capital cuando cambia la inversión total en la tabla
@@ -54,8 +50,6 @@ function App() {
   }, [results.totalInvestment, state.config.debt.amount, state.config.debt.equity, updateConfig]);
 
   const [helpId, setHelpId] = useState<string | null>(null);
-  const [showPeriodicityModal, setShowPeriodicityModal] = useState(false);
-  const [pendingPeriodicity, setPendingPeriodicity] = useState<'monthly' | 'yearly' | null>(null);
   const [propagationData, setPropagationData] = useState<{
     categoryId: string;
     itemId: string;
@@ -71,24 +65,7 @@ function App() {
     newValue: number;
   } | null>(null);
 
-  const handleTogglePeriodicity = (newPeriodicity: 'monthly' | 'yearly') => {
-    if (state.config.periodicity === 'monthly' && newPeriodicity === 'yearly') {
-      setPendingPeriodicity(newPeriodicity);
-      setShowPeriodicityModal(true);
-    } else {
-      togglePeriodicity(newPeriodicity);
-    }
-  };
-
-  const confirmPeriodicity = (propagate: boolean) => {
-    if (pendingPeriodicity) {
-      togglePeriodicity(pendingPeriodicity, propagate);
-      setPendingPeriodicity(null);
-      setShowPeriodicityModal(false);
-    }
-  };
-
-  const handlePropagationConfirm = (type: 'fixed' | 'proportional') => {
+  const handlePropagationConfirm = (type: 'fixed' | 'proportional' | 'none') => {
     if (propagationData) {
       propagateItemValue(
         propagationData.categoryId,
@@ -126,54 +103,66 @@ function App() {
           </div>
           
           <div className="flex items-center gap-6">
+            <button
+              onClick={loadDemoData}
+              className="px-4 py-2 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:border-blue-200 transition-all shadow-sm active:scale-95"
+            >
+              Cargar Ejemplo Ajustado
+            </button>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">Flujo de Caja</h2>
             
             <div className="w-px h-6 bg-slate-200 mx-2" />
 
-            {/* BOTÓN DE CONFIGURACIÓN (RUEDITA) */}
-            <Dialog.Root>
-              <Dialog.Trigger asChild>
-                <button className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 group">
-                  <Settings className="group-hover:rotate-90 transition-transform duration-500" size={20} />
-                </button>
-              </Dialog.Trigger>
-              <Dialog.Portal>
-                <Dialog.Overlay asChild>
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100]" 
+            {/* CONTROLES DE CONFIGURACIÓN DIRECTOS */}
+            <div className="flex items-center gap-4">
+              {/* HORIZONTE Y PERIODICIDAD (Estilo Imagen) */}
+              <div className="flex items-center bg-white border border-slate-300 rounded-xl overflow-hidden shadow-sm h-10">
+                {/* HORIZONTE */}
+                <div className="flex items-center px-3 gap-2 h-full bg-slate-50">
+                  <input 
+                    type="number"
+                    value={state.config.horizon}
+                    onChange={(e) => updateConfig({ horizon: parseInt(e.target.value) || 1 })}
+                    className="w-8 bg-transparent text-lg font-black text-slate-800 text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                </Dialog.Overlay>
-                <Dialog.Content asChild>
-                  <motion.div 
-                    initial={{ opacity: 0, x: 100 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 100 }}
-                    className="fixed top-0 right-0 bottom-0 w-[400px] bg-white shadow-2xl z-[101] outline-none overflow-hidden"
+                  <div className="flex flex-col -gap-1">
+                    <button 
+                      onClick={() => updateConfig({ horizon: state.config.horizon + 1 })}
+                      className="text-slate-400 hover:text-blue-600 transition-colors"
+                    >
+                      <ChevronUp size={14} />
+                    </button>
+                    <button 
+                      onClick={() => updateConfig({ horizon: Math.max(1, state.config.horizon - 1) })}
+                      className="text-slate-400 hover:text-blue-600 transition-colors"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">AÑOS</span>
+                </div>
+              </div>
+
+              {/* KE / TMAR (%) */}
+              <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-xl px-3 h-10 shadow-sm group hover:border-blue-400 transition-all">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-blue-500 transition-colors">KE</span>
+                  <button 
+                    onClick={() => setHelpId('ke')}
+                    className="text-slate-300 hover:text-blue-500 transition-colors"
                   >
-                    <div className="absolute top-6 right-6 z-10">
-                      <Dialog.Close className="p-2 text-slate-400 hover:text-slate-600 rounded-full transition-colors">
-                        <X size={20} />
-                      </Dialog.Close>
-                    </div>
-                    <ConfigPanel 
-                      config={state.config}
-                      totalInvestment={results.totalInvestment}
-                      onUpdateConfig={(updates) => {
-                        if (updates.periodicity) {
-                          handleTogglePeriodicity(updates.periodicity);
-                        } else {
-                          updateConfig(updates);
-                        }
-                      }}
-                      onHelp={setHelpId}
-                    />
-                  </motion.div>
-                </Dialog.Content>
-              </Dialog.Portal>
-            </Dialog.Root>
+                    <HelpCircle size={12} />
+                  </button>
+                </div>
+                <input 
+                  type="number"
+                  value={state.config.ke}
+                  onChange={(e) => updateConfig({ ke: parseFloat(e.target.value) || 0 })}
+                  className="w-8 bg-transparent text-sm font-black text-slate-800 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-xs font-bold text-slate-400">%</span>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -190,8 +179,7 @@ function App() {
               categories={state.categories}
               config={state.config}
               results={results}
-              onAddItem={addItem}
-              onUpdateItem={updateItem}
+              onUpdateConfig={updateConfig}
               onPropagate={(categoryId, itemId, index, oldValue, newValue) => {
                 if (index === 0 && !['delta_ct', 'capex'].includes(categoryId)) {
                   propagateItemValue(categoryId, itemId, index, newValue, 'fixed');
@@ -216,7 +204,6 @@ function App() {
                   setPropagationData({ categoryId, itemId, index, oldValue, newValue, changePercent });
                 }
               }}
-              onDeleteItem={deleteItem}
               onHelp={setHelpId}
             />
           </motion.div>
@@ -266,60 +253,6 @@ function App() {
         title={helpId ? HELP_CONTENT[helpId]?.title : ''}
         description={helpId ? HELP_CONTENT[helpId]?.description : ''}
       />
-
-      {/* MODAL DE TRANSICIÓN DE PERIODICIDAD */}
-      <AnimatePresence>
-        {showPeriodicityModal && (
-          <Dialog.Root open={showPeriodicityModal} onOpenChange={setShowPeriodicityModal}>
-            <Dialog.Portal forceMount>
-              <Dialog.Overlay asChild>
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="bg-slate-900/40 backdrop-blur-sm fixed inset-0 z-[100]" 
-                />
-              </Dialog.Overlay>
-              <Dialog.Content asChild>
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                  className="fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[90vw] max-w-md bg-white rounded-[2rem] shadow-2xl p-8 z-[101] outline-none"
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <Dialog.Title className="text-xl font-black text-slate-900 tracking-tight">
-                      Cambio de Escala Temporal
-                    </Dialog.Title>
-                    <Dialog.Close className="p-2 text-slate-400 hover:text-slate-600 rounded-full transition-colors">
-                      <X size={20} />
-                    </Dialog.Close>
-                  </div>
-                  
-                  <p className="text-slate-500 font-medium mb-8 leading-relaxed">
-                    Estás colapsando la vista mensual a anual. ¿Deseas <span className="text-blue-600 font-bold">propagar el total</span> del primer año a los años posteriores o mantener la suma de los meses actuales?
-                  </p>
-
-                  <div className="space-y-3">
-                    <button 
-                      onClick={() => confirmPeriodicity(true)}
-                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-[0.98]"
-                    >
-                      Propagar Total Anual
-                    </button>
-                    <button 
-                      onClick={() => confirmPeriodicity(false)}
-                      className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98]"
-                    >
-                      Sumar Meses Actuales
-                    </button>
-                  </div>
-                </motion.div>
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
-        )}
-      </AnimatePresence>
 
       {/* MODAL DE PROPAGACIÓN AVANZADA */}
       <PropagationModal 

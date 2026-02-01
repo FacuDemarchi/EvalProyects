@@ -38,8 +38,6 @@ export const ReflectionBox: React.FC<ReflectionBoxProps> = ({ config, results })
     bullet: "El sistema Bullet (Solo Intereses) es el óptimo estratégico para este escenario de liquidez. Al diferir la devolución del capital al final del horizonte, liberas flujo de caja operativo durante la vida del proyecto, maximizando el valor presente neto al mantener el dinero trabajando en el negocio por más tiempo."
   }[config.debt.system];
 
-  const ceilingNote = "Nota Estratégica: Si tu entidad financiera impone un límite de crédito (Techo de Deuda), puedes ajustar manualmente el monto en el panel de configuración para recalcular la viabilidad bajo esa restricción específica.";
-
   // Lógica de determinación de estado
   let status: 'success' | 'warning' | 'error' = 'success';
   let title = '';
@@ -109,12 +107,6 @@ export const ReflectionBox: React.FC<ReflectionBoxProps> = ({ config, results })
                 {systemExplanation}
               </p>
             </div>
-          </div>
-
-          <div className="py-4 px-6 bg-white/40 rounded-2xl border border-black/5">
-            <p className="text-[11px] leading-relaxed font-bold opacity-70 italic">
-              {ceilingNote}
-            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-6">

@@ -6,13 +6,13 @@
 
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, ArrowRight, TrendingUp, Equal } from 'lucide-react';
+import { X, ArrowRight, TrendingUp, Equal, MousePointer2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PropagationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (type: 'fixed' | 'proportional') => void;
+  onConfirm: (type: 'fixed' | 'proportional' | 'none') => void;
   oldValue: number;
   newValue: number;
   changePercent: number;
@@ -80,6 +80,19 @@ export const PropagationModal: React.FC<PropagationModalProps> = ({
                 </p>
 
                 <div className="grid grid-cols-1 gap-3">
+                  <button 
+                    onClick={() => onConfirm('none')}
+                    className="group w-full p-4 bg-white border-2 border-slate-100 rounded-2xl flex items-center gap-4 hover:border-slate-400 hover:bg-slate-50 transition-all text-left"
+                  >
+                    <div className="p-3 rounded-xl bg-slate-100 text-slate-500 group-hover:bg-slate-700 group-hover:text-white transition-colors">
+                      <MousePointer2 size={20} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-black text-slate-800 block">Solo este período</span>
+                      <span className="text-[11px] font-medium text-slate-400">No afectar a los períodos siguientes</span>
+                    </div>
+                  </button>
+
                   <button 
                     onClick={() => onConfirm('fixed')}
                     className="group w-full p-4 bg-white border-2 border-slate-100 rounded-2xl flex items-center gap-4 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-left"

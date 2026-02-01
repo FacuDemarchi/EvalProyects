@@ -23,8 +23,21 @@ export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config
   const debtP = 100 - equityP;
 
   const handleEquityChange = (newP: number) => {
-    const newE = totalV * (newP / 100);
+    const newE = Math.round(totalV * (newP / 100));
     const newD = totalV - newE;
+    onUpdateConfig({
+      debt: {
+        ...config.debt,
+        amount: newD,
+        equity: newE,
+        enabled: newD > 0
+      }
+    });
+  };
+
+  const handleDebtChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newD = Math.round(parseFloat(e.target.value) || 0);
+    const newE = Math.max(0, totalV - newD);
     onUpdateConfig({
       debt: {
         ...config.debt,
@@ -112,7 +125,7 @@ export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config
             <input 
               type="range"
               min="0"
-              max="95"
+              max="100"
               step="5"
               value={equityP}
               onChange={(e) => handleEquityChange(parseFloat(e.target.value))}
@@ -141,20 +154,57 @@ export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config
               <Landmark size={14} className="text-amber-500" />
               <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Monto Deuda</span>
             </div>
-            <p className="text-lg font-black text-slate-800">${config.debt.amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <div className="flex items-center">
+              <span className="text-lg font-black text-slate-800">$</span>
+              <input 
+                type="number"
+                value={config.debt.amount.toFixed(0)}
+                onChange={handleDebtChange}
+                className="w-full bg-transparent text-lg font-black text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
           </div>
           <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
             <div className="flex items-center gap-2 mb-1">
               <Wallet size={14} className="text-blue-500" />
               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Aporte Propio</span>
             </div>
-            <p className="text-lg font-black text-slate-800">${config.debt.equity.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-lg font-black text-slate-800">${config.debt.equity.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</p>
+          </div>
+        </div>
+
+        {/* NUEVA FILA: PLAZO Y TASA */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Plazo (Años)</span>
+            </div>
+            <input 
+              type="number"
+              value={config.debt.term}
+              onChange={(e) => onUpdateConfig({ debt: { ...config.debt, term: parseInt(e.target.value) || 1 } })}
+              className="w-full bg-transparent text-lg font-black text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+          <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tasa Anual (%)</span>
+            </div>
+            <div className="flex items-center">
+              <input 
+                type="number"
+                value={config.debt.annualRate}
+                onChange={(e) => onUpdateConfig({ debt: { ...config.debt, annualRate: parseFloat(e.target.value) || 0 } })}
+                className="w-full bg-transparent text-lg font-black text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-lg font-black text-slate-800">%</span>
+            </div>
           </div>
         </div>
 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inversión Total</span>
-          <span className="text-xl font-black text-slate-900">${totalV.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span className="text-xl font-black text-slate-900">${totalV.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
         </div>
       </div>
     </motion.div>
