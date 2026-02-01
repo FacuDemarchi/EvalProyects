@@ -4,9 +4,11 @@
  * RETORNA: El estado actual, los resultados calculados y funciones para manipular los datos.
  */
 
-import { useState, useMemo } from 'react';
-import type { Category, FinancialConfig, Item, ProjectState, FinancialResults, Periodicity } from '../types/finance';
-import { generateDebtSchedule, calculateWACC, calculateKPIs } from '../utils/finance';
+import { useState, useMemo, useEffect } from 'react';
+import type { Category, FinancialConfig, Item, ProjectState, FinancialResults, Periodicity, AmortizationSystem } from '../types/finance';
+import { calculateFullResults } from '../utils/finance';
+
+const STORAGE_KEY = 'evalpro_project_state';
 
 const INITIAL_CATEGORIES: Category[] = [
   { id: 'ingresos', label: 'Ingresos', helpId: 'help_ingresos', items: [{ id: '1', label: '', values: [0, 0, 0, 0, 0] }] },
@@ -35,10 +37,24 @@ const INITIAL_CONFIG: FinancialConfig = {
 };
 
 export const useFinance = () => {
-  const [state, setState] = useState<ProjectState>({
-    categories: INITIAL_CATEGORIES,
-    config: INITIAL_CONFIG,
+  const [state, setState] = useState<ProjectState>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading state from localStorage', e);
+      }
+    }
+    return {
+      categories: INITIAL_CATEGORIES,
+      config: INITIAL_CONFIG,
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
 
   const updateConfig = (newConfig: Partial<FinancialConfig>) => {
     setState(prev => {
@@ -203,72 +219,61 @@ export const useFinance = () => {
   };
 
   const results = useMemo((): FinancialResults => {
+    return calculateFullResults(state.config, state.categories);
+  }, [state]);
+
+  const optimizeCapitalStructure = () => {
     const { config, categories } = state;
-    const horizon = config.horizon;
+    const totalV = results.totalInvestment;
+    const systems: AmortizationSystem[] = ['french', 'german', 'bullet'];
     
-    const getTotals = (catId: string) => {
-      const cat = categories.find(c => c.id === catId);
-      const totals = new Array(horizon).fill(0);
-      cat?.items.forEach(item => {
-        item.values.forEach((val, i) => {
-          if (i < horizon) totals[i] += val;
-        });
-      });
-      return totals;
+    let bestVan = -Infinity;
+    let bestConfig = { 
+      amount: config.debt.amount, 
+      equity: config.debt.equity, 
+      system: config.debt.system 
     };
 
-    const ingresos = getTotals('ingresos');
-    const costosVar = getTotals('costos_var');
-    const costosFijos = getTotals('costos_fijos');
-    const capex = getTotals('capex');
-    const deltaCt = getTotals('delta_ct');
+    // Probar diferentes niveles de deuda (0% a 95% para dejar algo de equity)
+    // Usamos pasos del 5% para encontrar un balance razonable
+    for (let debtRatio = 0; debtRatio <= 0.95; debtRatio += 0.05) {
+      const currentDebtAmount = totalV * debtRatio;
+      const currentEquityAmount = totalV - currentDebtAmount;
 
-    const ebitda = ingresos.map((ing, i) => ing + costosVar[i] + costosFijos[i]);
-    const ebit = [...ebitda];
+      for (const system of systems) {
+        const testConfig: FinancialConfig = {
+          ...config,
+          debt: {
+            ...config.debt,
+            enabled: currentDebtAmount > 0,
+            amount: currentDebtAmount,
+            equity: currentEquityAmount,
+            system: system,
+          }
+        };
 
-    const debtSchedule = config.debt.enabled ? generateDebtSchedule(config.debt) : [];
-    const interest = new Array(horizon).fill(0);
-    const principal = new Array(horizon).fill(0);
-
-    if (config.debt.enabled) {
-      debtSchedule.forEach(entry => {
-        if (entry.period <= horizon) {
-          interest[entry.period - 1] = -entry.interest;
-          principal[entry.period - 1] = -entry.principal;
+        const testResults = calculateFullResults(testConfig, categories);
+        if (testResults.kpis.van > bestVan) {
+          bestVan = testResults.kpis.van;
+          bestConfig = { 
+            amount: currentDebtAmount, 
+            equity: currentEquityAmount, 
+            system: system 
+          };
         }
-      });
+      }
     }
 
-    const taxes = ebit.map((eb, i) => {
-      // Si estamos en modo accionista, restamos intereses (que ya son negativos)
-      const base = config.evalMode === 'project' ? eb : eb + interest[i];
-      return -Math.max(0, base) * (config.taxRate / 100);
+    updateConfig({
+      debt: {
+        ...config.debt,
+        enabled: bestConfig.amount > 0,
+        amount: bestConfig.amount,
+        equity: bestConfig.equity,
+        system: bestConfig.system as AmortizationSystem,
+      }
     });
-
-    const fcff = ebit.map((eb, i) => eb + taxes[i] + capex[i] + deltaCt[i]);
-    const fcfe = fcff.map((f, i) => f + interest[i] + principal[i]);
-
-    const activeCashFlow = config.evalMode === 'project' ? fcff : fcfe;
-    const wacc = calculateWACC(config);
-    const discountRate = config.evalMode === 'project' ? wacc : config.ke / 100;
-
-    const totalInvestment = capex.reduce((a, b) => a + b, 0) + deltaCt.reduce((a, b) => a + b, 0);
-
-    const kpis = calculateKPIs(activeCashFlow, discountRate);
-
-    return {
-      ebitda,
-      ebit,
-      taxes,
-      interest,
-      principal,
-      fcff,
-      fcfe,
-      wacc,
-      totalInvestment,
-      kpis,
-    };
-  }, [state]);
+  };
 
   return {
     state,
@@ -279,5 +284,7 @@ export const useFinance = () => {
     propagateItemValue,
     updateConfig,
     togglePeriodicity,
+    optimizeCapitalStructure,
   };
 };
+

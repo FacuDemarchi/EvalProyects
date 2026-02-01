@@ -59,4 +59,8 @@ export const HELP_CONTENT: Record<string, { title: string; description: string }
     title: 'IVAN (Índice de VAN)',
     description: 'Mide el VAN generado por cada unidad de capital invertido. Es útil para comparar proyectos de diferente escala.',
   },
+  debt_system: {
+    title: 'Sistema de Amortización',
+    description: 'Define cómo se devuelve el capital de la deuda. Francés: cuotas constantes. Alemán: amortización de capital constante (cuotas decrecientes). Bullet: se pagan solo intereses y el capital se devuelve íntegro al final.',
+  },
 };

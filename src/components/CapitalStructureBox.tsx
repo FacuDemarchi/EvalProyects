@@ -6,17 +6,19 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Landmark, Wallet, HelpCircle } from 'lucide-react';
-import type { FinancialConfig } from '../types/finance';
+import { Landmark, Wallet, HelpCircle, Zap, Calculator } from 'lucide-react';
+import type { FinancialConfig, AmortizationSystem } from '../types/finance';
 
 interface CapitalStructureBoxProps {
   config: FinancialConfig;
+  totalInvestment: number;
   onUpdateConfig: (updates: Partial<FinancialConfig>) => void;
+  onOptimize: () => void;
   onHelp: (id: string) => void;
 }
 
-export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config, onUpdateConfig, onHelp }) => {
-  const totalV = config.debt.amount + config.debt.equity;
+export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config, totalInvestment, onUpdateConfig, onOptimize, onHelp }) => {
+  const totalV = totalInvestment;
   const equityP = totalV > 0 ? (config.debt.equity / totalV) * 100 : 100;
   const debtP = 100 - equityP;
 
@@ -33,24 +35,67 @@ export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config
     });
   };
 
+  const handleSystemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onUpdateConfig({
+      debt: {
+        ...config.debt,
+        system: e.target.value as AmortizationSystem
+      }
+    });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="bg-white rounded-[2rem] border border-slate-200/60 p-8 shadow-xl shadow-slate-200/50 flex flex-col h-full"
+      className="bg-white rounded-[2rem] border border-slate-200/60 p-8 shadow-xl shadow-slate-200/50 flex flex-col h-full relative overflow-hidden"
     >
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-3 rounded-2xl bg-slate-50 text-slate-600 shadow-sm border border-slate-100">
-          <Landmark size={24} />
+      <div className="flex items-center justify-between mb-6 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-2xl bg-slate-50 text-slate-600 shadow-sm border border-slate-100">
+            <Landmark size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black tracking-tight text-slate-800">Estructura de Capital</h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Mix Deuda vs Equity</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-xl font-black tracking-tight text-slate-800">Estructura de Capital</h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Mix Deuda vs Equity</p>
-        </div>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onOptimize}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all group"
+        >
+          <Zap size={14} className="group-hover:animate-pulse" />
+          Calcular Óptimo
+        </motion.button>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center space-y-8">
+      <div className="flex-1 flex flex-col justify-center space-y-8 relative z-10">
+        {/* SELECTOR DE SISTEMA DE AMORTIZACIÓN */}
+        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calculator size={14} className="text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sistema Amortización</span>
+            </div>
+            <button onClick={() => onHelp('debt_system')} className="text-slate-300 hover:text-slate-500 transition-colors">
+              <HelpCircle size={14} />
+            </button>
+          </div>
+          <select 
+            value={config.debt.system}
+            onChange={handleSystemChange}
+            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
+          >
+            <option value="french">Francés (Cuota Fija)</option>
+            <option value="german">Alemán (Amortización Fija)</option>
+            <option value="bullet">Bullet (Interés Solo)</option>
+          </select>
+        </div>
+
         {/* GRÁFICO DE BARRA DE ESTRUCTURA CON SLIDER INTEGRADO */}
         <div className="space-y-4">
           <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest mb-1">
@@ -67,8 +112,8 @@ export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config
             <input 
               type="range"
               min="0"
-              max="100"
-              step="1"
+              max="95"
+              step="5"
               value={equityP}
               onChange={(e) => handleEquityChange(parseFloat(e.target.value))}
               className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600 z-10 relative"
@@ -96,22 +141,23 @@ export const CapitalStructureBox: React.FC<CapitalStructureBoxProps> = ({ config
               <Landmark size={14} className="text-amber-500" />
               <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Monto Deuda</span>
             </div>
-            <p className="text-lg font-black text-slate-800">${config.debt.amount.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</p>
+            <p className="text-lg font-black text-slate-800">${config.debt.amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
           <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
             <div className="flex items-center gap-2 mb-1">
               <Wallet size={14} className="text-blue-500" />
               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Aporte Propio</span>
             </div>
-            <p className="text-lg font-black text-slate-800">${config.debt.equity.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</p>
+            <p className="text-lg font-black text-slate-800">${config.debt.equity.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inversión Total</span>
-          <span className="text-xl font-black text-slate-900">${totalV.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</span>
+          <span className="text-xl font-black text-slate-900">${totalV.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
     </motion.div>
   );
 };
+

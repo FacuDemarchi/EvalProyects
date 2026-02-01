@@ -42,7 +42,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ config, results, onU
       </div>
 
       <div className="text-2xl font-black text-slate-900 tracking-tight">
-        {format === 'currency' && `$${value.toLocaleString('es-CL', { minimumFractionDigits: 0 })}`}
+        {format === 'currency' && `$${value.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         {format === 'percent' && `${(value * 100).toFixed(2)}%`}
         {format === 'number' && value.toFixed(2)}
         {format === 'years' && (

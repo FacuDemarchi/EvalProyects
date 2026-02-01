@@ -19,6 +19,27 @@ export const ReflectionBox: React.FC<ReflectionBoxProps> = ({ config, results })
   const { van, tir, bc, pri } = kpis;
   const discountRate = config.evalMode === 'project' ? results.wacc : config.ke / 100;
 
+  // Lógica de optimización y apalancamiento
+  const totalCapital = config.debt.amount + config.debt.equity;
+  const debtRatio = totalCapital > 0 ? (config.debt.amount / totalCapital) * 100 : 0;
+  
+  let leverageTitle = config.evalMode === 'project' ? 'Optimización del WACC' : 'Efecto del Apalancamiento';
+  let leverageText = '';
+  
+  if (config.evalMode === 'project') {
+    leverageText = `Al evaluar por Proyecto, el uso de un ${debtRatio.toFixed(0)}% de deuda optimiza el WACC (Costo Promedio Ponderado de Capital). Dado que el costo de la deuda después de impuestos (${(config.debt.annualRate * (1 - config.taxRate/100)).toFixed(1)}%) es menor al costo del capital propio (${config.ke}%), la estructura actual permite descontar los flujos a una tasa más baja, maximizando el valor intrínseco del negocio.`;
+  } else {
+    leverageText = `En el modo Accionista, el apalancamiento del ${debtRatio.toFixed(0)}% potencia tu rentabilidad interna (TIR). Al financiar parte de la inversión con capital de terceros a una tasa (${config.debt.annualRate}%) que es menor al retorno esperado del proyecto, el excedente generado por cada dólar prestado fluye directamente hacia ti como accionista, incrementando el VAN de tu aporte propio.`;
+  }
+
+  const systemExplanation = {
+    french: "Se ha seleccionado el sistema Francés (Cuota Fija) porque ofrece estabilidad en los egresos financieros, permitiendo una planificación de tesorería más predecible sin comprometer la liquidez inicial excesivamente.",
+    german: "El sistema Alemán (Amortización Fija) es la opción elegida para reducir la carga de intereses más rápidamente. Al amortizar capital de forma constante, el ahorro fiscal es mayor en los primeros años, lo cual es beneficioso si el proyecto tiene flujos fuertes al inicio.",
+    bullet: "El sistema Bullet (Solo Intereses) es el óptimo estratégico para este escenario de liquidez. Al diferir la devolución del capital al final del horizonte, liberas flujo de caja operativo durante la vida del proyecto, maximizando el valor presente neto al mantener el dinero trabajando en el negocio por más tiempo."
+  }[config.debt.system];
+
+  const ceilingNote = "Nota Estratégica: Si tu entidad financiera impone un límite de crédito (Techo de Deuda), puedes ajustar manualmente el monto en el panel de configuración para recalcular la viabilidad bajo esa restricción específica.";
+
   // Lógica de determinación de estado
   let status: 'success' | 'warning' | 'error' = 'success';
   let title = '';
@@ -68,7 +89,35 @@ export const ReflectionBox: React.FC<ReflectionBoxProps> = ({ config, results })
             {description}
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-black/5">
+          {/* NUEVA SECCIÓN DE ANÁLISIS DETALLADO */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-6 border-y border-black/5 mt-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest opacity-60">
+                <TrendingUp size={14} />
+                {leverageTitle}
+              </div>
+              <p className="text-sm leading-relaxed font-medium opacity-80 italic">
+                "{leverageText}"
+              </p>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest opacity-60">
+                <ShieldCheck size={14} />
+                Estrategia de Amortización
+              </div>
+              <p className="text-sm leading-relaxed font-medium opacity-80">
+                {systemExplanation}
+              </p>
+            </div>
+          </div>
+
+          <div className="py-4 px-6 bg-white/40 rounded-2xl border border-black/5">
+            <p className="text-[11px] leading-relaxed font-bold opacity-70 italic">
+              {ceilingNote}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/50 rounded-lg">
                 <TrendingUp size={18} />

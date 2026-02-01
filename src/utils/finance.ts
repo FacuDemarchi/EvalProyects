@@ -4,7 +4,7 @@
  * RETORNA: Valores numéricos y estructuras de datos (como el cronograma) para ser usados en la UI.
  */
 
-import type { DebtParams, DebtScheduleEntry, FinancialConfig } from '../types/finance';
+import type { Category, DebtParams, DebtScheduleEntry, FinancialConfig, FinancialResults } from '../types/finance';
 
 /**
  * Calcula el VAN (NPV - Net Present Value)
@@ -135,6 +135,8 @@ export const calculateWACC = (config: FinancialConfig): number => {
   const Kd = debt.annualRate / 100;
   const T = taxRate / 100;
 
+  if (V === 0) return Ke;
+
   return Ke * (E / V) + Kd * (1 - T) * (D / V);
 };
 
@@ -155,3 +157,72 @@ export const calculateKPIs = (cashFlows: number[], discountRate: number) => {
 
   return { van, tir, pri, bc, pi, ivan };
 };
+
+/**
+ * Ejecuta el cálculo completo de flujos y KPIs (Motor de simulación)
+ */
+export const calculateFullResults = (config: FinancialConfig, categories: Category[]): FinancialResults => {
+  const horizon = config.horizon;
+  
+  const getTotals = (catId: string) => {
+    const cat = categories.find(c => c.id === catId);
+    const totals = new Array(horizon).fill(0);
+    cat?.items.forEach(item => {
+      item.values.forEach((val, i) => {
+        if (i < horizon) totals[i] += val;
+      });
+    });
+    return totals;
+  };
+
+  const ingresos = getTotals('ingresos');
+  const costosVar = getTotals('costos_var');
+  const costosFijos = getTotals('costos_fijos');
+  const capex = getTotals('capex');
+  const deltaCt = getTotals('delta_ct');
+
+  const ebitda = ingresos.map((ing, i) => ing + costosVar[i] + costosFijos[i]);
+  const ebit = [...ebitda];
+
+  const debtSchedule = config.debt.enabled ? generateDebtSchedule(config.debt) : [];
+  const interest = new Array(horizon).fill(0);
+  const principal = new Array(horizon).fill(0);
+
+  if (config.debt.enabled) {
+    debtSchedule.forEach(entry => {
+      if (entry.period <= horizon) {
+        interest[entry.period - 1] = -entry.interest;
+        principal[entry.period - 1] = -entry.principal;
+      }
+    });
+  }
+
+  const taxes = ebit.map((eb, i) => {
+    const base = config.evalMode === 'project' ? eb : eb + interest[i];
+    return -Math.max(0, base) * (config.taxRate / 100);
+  });
+
+  const fcff = ebit.map((eb, i) => eb + taxes[i] + capex[i] + deltaCt[i]);
+  const fcfe = fcff.map((f, i) => f + interest[i] + principal[i]);
+
+  const activeCashFlow = config.evalMode === 'project' ? fcff : fcfe;
+  const wacc = calculateWACC(config);
+  const discountRate = config.evalMode === 'project' ? wacc : config.ke / 100;
+
+  const totalInvestment = Math.abs(capex.reduce((a, b) => a + b, 0) + deltaCt.reduce((a, b) => a + b, 0));
+  const kpis = calculateKPIs(activeCashFlow, discountRate);
+
+  return {
+    ebitda,
+    ebit,
+    taxes,
+    interest,
+    principal,
+    fcff,
+    fcfe,
+    wacc,
+    totalInvestment,
+    kpis,
+  };
+};
+

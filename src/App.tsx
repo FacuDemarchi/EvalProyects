@@ -4,7 +4,7 @@
  * RETORNA: La estructura completa de la aplicación con un diseño premium y responsivo.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFinance } from './hooks/useFinance';
 import { SpreadsheetTable } from './components/SpreadsheetTable';
 import { ConfigPanel } from './components/ConfigPanel';
@@ -28,8 +28,30 @@ function App() {
     deleteItem, 
     propagateItemValue,
     updateConfig,
-    togglePeriodicity
+    togglePeriodicity,
+    optimizeCapitalStructure
   } = useFinance();
+
+  // Sincronizar la estructura de capital cuando cambia la inversión total en la tabla
+  useEffect(() => {
+    const currentDebt = state.config.debt.amount;
+    const currentEquity = state.config.debt.equity;
+    const currentTotalConfig = currentDebt + currentEquity;
+    const actualTotal = results.totalInvestment;
+
+    if (Math.abs(currentTotalConfig - actualTotal) > 0.01) {
+      // Mantener la proporción actual si existe, si no 100% equity
+      const ratio = currentTotalConfig > 0 ? currentDebt / currentTotalConfig : 0;
+      
+      updateConfig({
+        debt: {
+          ...state.config.debt,
+          amount: actualTotal * ratio,
+          equity: actualTotal * (1 - ratio),
+        }
+      });
+    }
+  }, [results.totalInvestment, state.config.debt.amount, state.config.debt.equity, updateConfig]);
 
   const [helpId, setHelpId] = useState<string | null>(null);
   const [showPeriodicityModal, setShowPeriodicityModal] = useState(false);
@@ -171,10 +193,10 @@ function App() {
               onAddItem={addItem}
               onUpdateItem={updateItem}
               onPropagate={(categoryId, itemId, index, oldValue, newValue) => {
-                if (index === 0 && categoryId !== 'delta_ct') {
+                if (index === 0 && !['delta_ct', 'capex'].includes(categoryId)) {
                   propagateItemValue(categoryId, itemId, index, newValue, 'fixed');
-                } else if (index === 0 && categoryId === 'delta_ct') {
-                  // No propagar capital de trabajo por defecto
+                } else if (index === 0 && ['delta_ct', 'capex'].includes(categoryId)) {
+                  // No propagar capital de trabajo ni inversión por defecto
                   updateItem(categoryId, itemId, { values: state.categories.find(c => c.id === categoryId)!.items[0].values.map((v, i) => i === 0 ? newValue : v) });
                 } else if (categoryId === 'delta_ct' && index > 0 && newValue !== 0) {
                   // Mostrar advertencia solo si la variación es significativa (> 20% del valor del periodo anterior)
@@ -205,7 +227,9 @@ function App() {
           <div className="lg:col-span-5 h-full">
             <CapitalStructureBox 
               config={state.config}
+              totalInvestment={results.totalInvestment}
               onUpdateConfig={updateConfig}
+              onOptimize={optimizeCapitalStructure}
               onHelp={setHelpId}
             />
           </div>

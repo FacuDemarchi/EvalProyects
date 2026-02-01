@@ -91,34 +91,73 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                 </td>
                 {periods.map((_, i) => {
                   const isEditing = editingValue?.catId === category.id && editingValue?.index === i;
-                  const displayValue = isEditing ? editingValue.value : (mainItem?.values[i] || 0);
+                  const value = mainItem?.values[i] || 0;
+                  
+                  // Formateador contable para mostrar mientras se escribe
+                  const formatAccounting = (valStr: string) => {
+                    if (!valStr) return "";
+                    // Limpiar todo lo que no sea número o coma
+                    const clean = valStr.replace(/[^\d,]/g, "");
+                    const parts = clean.split(",");
+                    // Formatear la parte entera con puntos
+                    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                    return parts.join(",");
+                  };
+
+                  const displayValue = isEditing 
+                    ? editingValue.value 
+                    : value.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                   return (
                     <td key={i} className="p-0 border-r border-slate-300 last:border-r-0">
                       <input
-                        type="number"
+                        type="text"
                         value={displayValue}
                         onFocus={(e) => {
-                          e.target.select();
-                          setEditingValue({ catId: category.id, index: i, value: (mainItem?.values[i] || 0).toString() });
+                          // Al seleccionar, dejamos la celda en blanco para escribir de cero
+                          setEditingValue({ catId: category.id, index: i, value: "" });
                         }}
                         onChange={(e) => {
-                          setEditingValue({ catId: category.id, index: i, value: e.target.value });
+                          const rawValue = e.target.value;
+                          // Aplicamos el formato contable dinámico mientras escribe
+                          const formatted = formatAccounting(rawValue);
+                          setEditingValue({ catId: category.id, index: i, value: formatted });
                         }}
                         onBlur={(e) => {
-                          const newValue = parseFloat(e.target.value) || 0;
+                          // Si el usuario no escribió nada (dejó en blanco), mantenemos el valor anterior
+                          if (editingValue?.value === "") {
+                            setEditingValue(null);
+                            return;
+                          }
+                          
+                          // Obtener el valor formateado del input
+                          const rawValue = e.target.value;
+                          // Limpiar puntos y convertir coma a punto para parsear
+                          const cleanValue = rawValue.replace(/\./g, "").replace(",", ".");
+                          const newValue = parseFloat(cleanValue) || 0;
+                          
                           const currentValue = mainItem!.values[i];
                           const prevPeriodValue = i > 0 ? mainItem!.values[i - 1] : 0;
+                          
                           handleBlur(category.id, mainItem!.id, i, currentValue, newValue, prevPeriodValue);
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            (e.target as HTMLInputElement).blur();
+                            const input = e.target as HTMLInputElement;
+                            const newValue = parseFloat(input.value.replace(/\./g, "").replace(",", ".")) || 0;
+                            const currentValue = mainItem!.values[i];
+                            const prevPeriodValue = i > 0 ? mainItem!.values[i - 1] : 0;
+                            
+                            setEditingValue(null);
+                            if (newValue !== currentValue) {
+                              onPropagate(category.id, mainItem!.id, i, prevPeriodValue, newValue);
+                            }
+                            input.blur();
                           }
                         }}
                         className={cn(
                           "spreadsheet-input w-full h-full p-2 outline-none border-none text-right bg-transparent focus:bg-blue-50 focus:ring-2 focus:ring-blue-400 transition-all font-semibold",
-                          Number(displayValue) < 0 && "text-red-500"
+                          value < 0 && "text-red-500"
                         )}
                       />
                     </td>
@@ -143,7 +182,7 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                 "p-2 text-right border-r border-slate-300 last:border-r-0 font-black",
                 val < 0 ? "text-red-500" : "text-slate-900"
               )}>
-                {val.toLocaleString('es-CL', { minimumFractionDigits: 0 })}
+                {val.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
             ))}
           </tr>
@@ -157,7 +196,7 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                 "p-2 text-right border-r border-slate-300 last:border-r-0",
                 val < 0 ? "text-red-500" : "text-slate-900"
               )}>
-                {val.toLocaleString('es-CL', { minimumFractionDigits: 0 })}
+                {val.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
             ))}
           </tr>
@@ -171,7 +210,7 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                     "p-2 text-right border-r border-slate-300 last:border-r-0",
                     val < 0 ? "text-red-500" : "text-slate-900"
                   )}>
-                    {val.toLocaleString('es-CL', { minimumFractionDigits: 0 })}
+                    {val.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 ))}
               </tr>
@@ -182,7 +221,7 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
                     "p-2 text-right border-r border-slate-300 last:border-r-0",
                     val < 0 ? "text-red-500" : "text-slate-900"
                   )}>
-                    {val.toLocaleString('es-CL', { minimumFractionDigits: 0 })}
+                    {val.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 ))}
               </tr>
@@ -199,19 +238,19 @@ export const SpreadsheetTable: React.FC<SpreadsheetTableProps> = ({
               {config.evalMode === 'project' ? 'Flujo Proyecto (FCFF)' : 'Flujo Accionista (FCFE)'}
             </td>
             {(config.evalMode === 'project' ? results.fcff : results.fcfe).map((val, i) => (
-              <td key={i} className={cn(
-                "p-2 text-right border-r border-slate-300 last:border-r-0",
-                val < 0 ? "text-red-600" : "text-inherit"
-              )}>
-                <motion.span
-                  key={`${config.evalMode}-${val}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {val.toLocaleString('es-CL', { minimumFractionDigits: 0 })}
-                </motion.span>
-              </td>
-            ))}
+                  <td key={i} className={cn(
+                    "p-2 text-right border-r border-slate-300 last:border-r-0",
+                    val < 0 ? "text-red-600" : "text-inherit"
+                  )}>
+                    <motion.span
+                      key={`${config.evalMode}-${val}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      {val.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </motion.span>
+                  </td>
+                ))}
           </tr>
         </tbody>
       </table>
